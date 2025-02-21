@@ -1,0 +1,168 @@
+#this is code created for a a final assignment in Paul Smaldinos COGS 122 Course at UC Merced.
+;;A simple model of adoption/contagion. Agents move around at random.
+;;They either spontaneously adopt a behavior or adopt it via social influence (contagion)
+;;This model adds recovery, so agents can dis-adopt and become immune
+
+globals [
+
+]
+
+turtles-own [
+  age
+  nostalgia
+  infected?
+  ;calculate-nostalgia
+  immune?
+  baseline-infection
+]
+
+
+;;--SETUP PROCEDURES------------------
+
+to setup
+  clear-all
+  setup-turtles
+;  setup-infected
+
+  reset-ticks
+end
+
+;;create the agents
+to setup-turtles
+  create-turtles num-turtles [
+    set shape "person"
+    set color white
+    set infected? prob? init-infected
+    set immune? prob? 0.20  ;; use slider immunity and infected
+    set age random 10
+    calculate-nostalgia
+    set baseline-infection .6
+    setxy random-xcor random-ycor ;;give random location
+  ]
+end
+
+to replace
+  ;; birthing and death
+  ask turtles with [age > random 100] [die]
+  ;; radom age of dying so there's more variablity in the ages
+  while [count turtles < num-turtles] [
+    ask one-of turtles [
+      hatch 1 [
+        set age 0
+        set nostalgia nostalgia * nostalgia-decay
+      ]
+    ]
+  ]
+end
+
+
+;;update agents' color based on infection status.
+;;red = infected, white = uninfected
+to recolor
+  ask turtles [
+    ifelse infected?
+    [set color red]
+    [ifelse immune?
+      [set color grey]
+      [set color white]
+    ]
+  ]
+end
+
+
+
+;;--DYNAMICS PROCEDURES------------------
+
+to go
+  ;;stop the simulation if everyone or no one is infected
+;  if (count turtles with [infected?]) = num-turtles or
+;     (count turtles with [infected?]) = 0
+;  [ stop ]
+  infect-susceptibles ;; S -> I
+  recover-infecteds ;; I -> S
+  recolor
+  move
+  ask turtles [set age (age + 1)]
+  tick
+  replace
+end
+
+to infect-pop
+ask turtles [if prob? 0.02 [set baseline-infection true]]
+end
+
+to calculate-nostalgia
+  let probability baseline-infection
+ ifelse age > 20 [
+    set probability baseline-infection + .2
+  ][
+    set probability baseline-infection - .2
+  ]
+  set nostalgia probability
+end
+
+to-report calculate-likelihood
+  let likelihood baseline-infection * nostalgia
+  report likelihood
+end
+
+;to calculate-reinfection
+to report-adoptability
+  if age > 20 [
+    ifelse calculate-likelihood > .6
+    [set immune? false
+  ][set immune? true]
+  ]
+end
+
+;;infected agents with probability dependent on transmissibility, number of infected neighbors, and
+;;the probability of spontaneous adoption.
+to infect-susceptibles ;; S -> I
+ ask turtles with [not infected? and not immune?][
+    if prob? spontaneous-infect [set infected? true]
+  ]
+  ;; spontaneous infection of random agents, this helps prevent the infection reach either 0 or 1 and allows it to come back if it does reach those points
+
+  ask turtles with [infected?] [
+    ask turtles with [not infected?] in-radius 1 [
+      if prob? transmissibility [set infected? true]
+    ]
+  ]
+  ;; this is the exposure idea
+
+end
+
+;;infected agents recover with probability recovery-rate
+to recover-infecteds ;; I -> R
+  ask turtles with [infected?] [if prob? recovery-rate [
+    ;; implemented the recovery rate so it does something, before it wasn't doing much which is why we were getting the graphs looking weird
+    set infected? false
+    ]
+  ]
+   ask turtles with [infected? and immune? = false]
+ [set infected? True set nostalgia 1 ]
+  ask turtles with [infected? and immune? = true]
+  [set infected? False set nostalgia 0 ]
+
+end
+
+;;execute a random walk
+to move
+  ask turtles [ ;;move
+    left random turning-angle
+    right random turning-angle
+    fd speed
+  ]
+end
+
+
+to-report prop-infected
+  report (count turtles with [infected?]) / num-turtles
+end
+
+to-report prob? [p]
+  report random-float 1 < p
+end
+
+; Copyright 2023 Paul E. Smaldino.
+; See Info tab for full copyright and license.
